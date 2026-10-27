@@ -100,6 +100,7 @@ The existing manual pointing, voice context, research cards, Codex controller an
 - `Mac/`: menu bar app, screenshot classifier, nudge generator, timer and existing tools.
 - `iOS/`: face, voice input, QR pairing, synchronized controls and focus timelines.
 - `Tests/`: deterministic logic, lifecycle and secure transport tests.
+- `android/` and `laptop/`: the Android phone app and the Windows/any-laptop app (Python), paired over USB. Same packets and encryption as the Swift apps. Start with `read_me_First_USB_Test.md`.
 
 ## License
 

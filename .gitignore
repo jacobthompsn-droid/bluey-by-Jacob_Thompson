@@ -8,3 +8,9 @@ xcuserdata/
 Secrets.xcconfig
 *.env
 .env*
+
+# Python (laptop app)
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
