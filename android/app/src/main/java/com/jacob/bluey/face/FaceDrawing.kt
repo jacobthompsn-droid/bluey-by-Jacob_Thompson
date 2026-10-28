@@ -28,11 +28,11 @@ import kotlin.math.sin
  * and shading look the same.
  */
 private object Palette {
-    val berry1 = Color(0xFFB6F0A8)  // light mint
-    val berry2 = Color(0xFF6FD36A)
-    val berry3 = Color(0xFF3BAA4E)
-    val berry4 = Color(0xFF1E6B34)  // deep green
-    val nose = Color(0xFF163D1F)    // crown, brows and mouth
+    val berry1 = Color(0xFF8FD98A)  // soft green
+    val berry2 = Color(0xFF4FB257)
+    val berry3 = Color(0xFF2A8A3E)
+    val berry4 = Color(0xFF155228)  // deep forest green
+    val nose = Color(0xFF0F2E17)    // crown, brows and mouth
     val ink = Color(0xFF17151F)
     val cheek = Color(0xFFF3A6D8)
     val tongue = Color(0xFFE58BC4)
