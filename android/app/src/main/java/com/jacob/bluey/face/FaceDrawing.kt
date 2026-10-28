@@ -22,13 +22,17 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-/** Blueberry colors from Shared/Palette.swift. */
+/**
+ * Face colors. Green on Android; the iPhone keeps the blueberry blues from Shared/Palette.swift
+ * (0xA9BCFF, 0x6C86F5, 0x4254D6, 0x2B2F8F, nose 0x1C1F66). Same light-to-deep steps, so shine
+ * and shading look the same.
+ */
 private object Palette {
-    val berry1 = Color(0xFFA9BCFF)
-    val berry2 = Color(0xFF6C86F5)
-    val berry3 = Color(0xFF4254D6)
-    val berry4 = Color(0xFF2B2F8F)
-    val nose = Color(0xFF1C1F66)
+    val berry1 = Color(0xFFB6F0A8)  // light mint
+    val berry2 = Color(0xFF6FD36A)
+    val berry3 = Color(0xFF3BAA4E)
+    val berry4 = Color(0xFF1E6B34)  // deep green
+    val nose = Color(0xFF163D1F)    // crown, brows and mouth
     val ink = Color(0xFF17151F)
     val cheek = Color(0xFFF3A6D8)
     val tongue = Color(0xFFE58BC4)
