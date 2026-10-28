@@ -22,14 +22,40 @@ def test_eyes_follow_the_mouse():
     assert gaze(tracker, W / 2, 0)[1] == -1
 
 
-@pytest.mark.parametrize("position", [0, 0.25, 0.5, 0.8, 1])
-def test_one_monitor_matches_the_mac_formula(position):
-    tracker = GazeTracker(phone_position=position)
+def test_one_monitor_with_the_phone_centered_matches_the_mac_formula():
+    tracker = GazeTracker()
     for mx in (0, 300, W / 2, 1500, W):
         for my in (0, 400, H):
-            mac_x = max(-1, min(1, (mx - W * position) / (W * 0.5)))
+            mac_x = max(-1, min(1, (mx - W / 2) / (W * 0.5)))
             mac_y = -max(0.15, min(1, (H * 1.18 - my) / (H * 1.1)))
             assert gaze(tracker, mx, my) == pytest.approx((mac_x, mac_y))
+
+
+@pytest.mark.parametrize("position", [0, 0.25, 0.8, 1])
+def test_off_center_phone_has_no_dead_zone(position):
+    # The Mac formula pins the eyes once the mouse is half a screen away; this keeps following.
+    tracker = GazeTracker(phone_position=position)
+    xs = [gaze(tracker, mx, H / 2)[0] for mx in range(0, W + 1, 120)]
+    assert xs == sorted(xs) and len(set(xs)) == len(xs)  # moves the whole way across
+    # The long side ends in a full glance; the short side keeps the Mac's gentler scale.
+    assert (xs[-1] == 1) if position <= 0.5 else (xs[0] == -1)
+
+
+def test_phone_between_two_monitors():
+    tracker = GazeTracker()
+    # Laptop 1920 wide, a 2560 monitor to its right; the phone stands at the gap (x = 1920).
+    left, right = (0, 0, W, H), (W, -240, 2560, 1440)
+    span = (0, -240, W + 2560, 1440)
+    tracker.phone_position = W / span[2]
+    reach = W / 2  # half the narrower monitor
+    at = lambda mx, my=H / 2: tracker.face(mx, my, span, span, now=0, reach=reach)["gazeX"]
+    assert at(W) == pytest.approx(0)
+    assert at(0) == -1 and at(W + 2560) == 1
+    xs = [at(mx) for mx in range(0, W + 2561, 160)]
+    assert xs == sorted(xs) and len(set(xs)) == len(xs)
+    # Slightly off the exact gap still works: the eyes just center a little to one side.
+    tracker.phone_position = (W - 150) / span[2]
+    assert -0.1 < at(W) < 0.1 and at(0) == -1 and at(W + 2560) == 1
 
 
 def test_second_monitor_to_the_right_keeps_following():
@@ -63,7 +89,9 @@ def test_monitor_to_the_left_with_negative_coordinates_and_one_above():
 
 
 def test_phone_position_shifts_the_gaze():
-    assert gaze(GazeTracker(phone_position=0), W / 2, H / 2)[0] == 1
+    tracker = GazeTracker(phone_position=0)
+    assert gaze(tracker, W / 2, H / 2)[0] == 0.5  # halfway to the far edge, not already maxed out
+    assert gaze(tracker, W, H / 2)[0] == 1
 
 
 def test_drowsy_then_napping_when_the_mouse_is_still():

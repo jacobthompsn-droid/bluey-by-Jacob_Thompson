@@ -25,7 +25,7 @@ What still had to be built from scratch (none of the Swift could be reused):
 | `laptop/bluey_laptop/link.py` | The laptop's server: challenge → proof → encrypted packets; drops bad or silent peers after 8 s | `Shared/GooglyLink.swift`, `Mac/…/PhoneServer.swift` |
 | `laptop/bluey_laptop/gaze.py` | Mouse position → where the eyes look, **across all your monitors**; drowsy after 5 s still, napping after 15 s | `CursorOverlay.swift` `face(in:now:)` (the Mac only watches its main display) |
 | `laptop/bluey_laptop/usb.py` | Finds `adb` and runs `adb reverse tcp:47474 tcp:47474`, re-trying every 5 s until the phone connects | new |
-| `laptop/bluey_laptop/app.py` | The window: QR code, status, mood picker, which monitor the phone sits under + where along it (remembered) | `AppDelegate.swift` menu, `PairingPanel.swift` |
+| `laptop/bluey_laptop/app.py` | The window: QR code, status, mood picker, which monitor the phone sits under (or *between* two) + a fine-tune slider (remembered) | `AppDelegate.swift` menu, `PairingPanel.swift` |
 | `laptop/bluey_laptop/fake_phone.py` | Pretends to be the phone, to test the laptop side alone | new |
 | `android/…/link/Secure.kt`, `Protocol.kt` | The same pairing/encryption/packets in Kotlin | `SecurePairing.swift`, `GooglyLink.swift` |
 | `android/…/link/LaptopLink.kt` | Connects to `127.0.0.1:47474`, handshakes, reconnects every 2 s, explains what's wrong | `iOS/Sources/MacLink.swift` |
@@ -41,8 +41,8 @@ What still had to be built from scratch (none of the Swift could be reused):
 
 | Check | Result |
 |---|---|
-| Laptop tests (`laptop/tests`): encryption, pinned test vectors, tamper/replay/out-of-order rejection, the full handshake over a real socket, wrong code refused, silent/garbage peers dropped, gaze maths (one monitor identical to the Mac; two monitors side by side, left/right, above, negative coordinates), drowsy/napping timing | ✅ 30 passed |
-| Laptop window with **two simulated monitors**: picker lists both, eyes sweep smoothly across both, choice remembered after restart | ✅ |
+| Laptop tests (`laptop/tests`): encryption, pinned test vectors, tamper/replay/out-of-order rejection, the full handshake over a real socket, wrong code refused, silent/garbage peers dropped, gaze maths (one centered monitor identical to the Mac; no dead zone when off-center; two monitors side by side, left/right, above, negative coordinates; phone between two monitors, exactly and slightly off the gap), drowsy/napping timing | ✅ 31 passed |
+| Laptop window with **two simulated monitors**: picker lists both plus *Between monitors 1 and 2*, which puts the phone at the gap; eyes sweep smoothly from −1 to +1 across both; choices remembered after restart | ✅ |
 | Phone Kotlin tests (`android/app/src/test`) run on a plain JVM: **same vectors as Python, byte for byte**, opening a line the laptop sealed, pairing-code parsing (including iPhone-era codes), animator moods and settling | ✅ 7 passed |
 | **Live end-to-end:** the real Kotlin `LaptopLink` connected to the real Python server, paired, received hello and a stream of faces, and sent packets back | ✅ |
 | Phone status messages for: laptop app not running / USB tunnel up but app not answering / wrong pairing code | ✅ each shows the right message |
@@ -91,7 +91,7 @@ What still had to be built from scratch (none of the Swift could be reused):
 |---|---|---|
 | 1 | Pair | Phone status (top left): *"Connected to <your laptop name>"*. Laptop window: *"Phone: connected to Samsung …"* |
 | 2 | Move the mouse left / right / up | The eyes follow it smoothly. The numbers at the bottom of the laptop window change. |
-| 3 | Set **Phone sits under** to the monitor the phone is below, and the slider to where along it | The eyes look "up at" the mouse from the right spot |
+| 3 | Set **Phone sits under** to the monitor the phone is below, or **Between monitors 1 and 2** if it stands in the gap. Then nudge **Fine-tune** until the eyes look straight up when the mouse is right above the phone. | The eyes look "up at" the mouse from the right spot. Being a bit off-center doesn't matter much. |
 | 3b | **Two monitors:** sweep the mouse from the far edge of one monitor to the far edge of the other | The eyes keep moving the whole way across, with no stuck spot. Movement on the monitor farther from the phone looks a little smaller; that's by design. |
 | 4 | Leave the mouse still for 5 s, then 15 s | Droopy sleepy eyes, then closed eyes with floating z's. Move the mouse and he wakes up. |
 | 5 | Pick each mood in the **Mood** menu | Happy (squinty smile), Thinking (dots, eyes up-right), Talking, Pointing (lids), Resting, Sleepy |

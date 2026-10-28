@@ -140,7 +140,7 @@ class MainWindow(QWidget):
         controls.addWidget(self.mood, 0, 1)
         controls.addWidget(QLabel("Phone sits under:"), 1, 0)
         controls.addWidget(self.monitor, 1, 1)
-        controls.addWidget(QLabel("…at its:"), 2, 0)
+        controls.addWidget(QLabel("Fine-tune:"), 2, 0)
         row = QHBoxLayout()
         row.addWidget(QLabel("left"))
         row.addWidget(self.position)
@@ -168,42 +168,67 @@ class MainWindow(QWidget):
         self.run_usb(force=True)
 
     def refresh_monitors(self):
-        """Lists the monitors, left to right, keeping the saved choice when it's still plugged in."""
+        """Lists the monitors left to right, then each gap between neighbours, keeping the saved
+        choice when it's still plugged in. An item's data is its monitor names joined by "|"."""
         screens = sorted(QGuiApplication.screens(), key=lambda s: (s.geometry().x(), s.geometry().y()))
-        wanted = self.settings.value("phoneScreen") or QGuiApplication.primaryScreen().name()
+        primary = QGuiApplication.primaryScreen()
+        wanted = self.settings.value("phoneScreen") or (primary.name() if primary else "")
         self.monitor.blockSignals(True)
         self.monitor.clear()
         for number, screen in enumerate(screens, 1):
             size = screen.geometry()
-            main = " (main)" if screen == QGuiApplication.primaryScreen() else ""
+            main = " (main)" if screen == primary else ""
             self.monitor.addItem(f"Monitor {number}{main}: {size.width()}×{size.height()}", screen.name())
-        names = [self.monitor.itemData(i) for i in range(self.monitor.count())]
-        primary = names.index(QGuiApplication.primaryScreen().name()) if QGuiApplication.primaryScreen() else 0
-        self.monitor.setCurrentIndex(names.index(wanted) if wanted in names else primary)
+        for number in range(1, len(screens)):
+            self.monitor.addItem(f"Between monitors {number} and {number + 1}",
+                                 screens[number - 1].name() + "|" + screens[number].name())
+        keys = [self.monitor.itemData(i) for i in range(self.monitor.count())]
+        fallback = keys.index(primary.name()) if primary and primary.name() in keys else 0
+        self.monitor.setCurrentIndex(keys.index(wanted) if wanted in keys else fallback)
         self.monitor.blockSignals(False)
 
     def monitor_chosen(self, index):
-        if index >= 0:
-            self.settings.setValue("phoneScreen", self.monitor.itemData(index))
+        if index < 0:
+            return
+        self.settings.setValue("phoneScreen", self.monitor.itemData(index))
+        screens = self.phone_screens()
+        if len(screens) == 2:
+            # Start the phone at the gap between the two monitors; the slider fine-tunes it.
+            left, right = (screen.geometry() for screen in screens)
+            area = self.phone_area()
+            gap = (left.x() + left.width() + right.x()) / 2
+            self.position.setValue(round((gap - area.x()) / area.width() * 100))
 
     def position_moved(self, value):
         self.tracker.phone_position = value / 100
         self.settings.setValue("phonePosition", value)
 
-    def phone_screen(self):
-        name = self.monitor.currentData()
-        return next((s for s in QGuiApplication.screens() if s.name() == name), QGuiApplication.primaryScreen())
+    def phone_screens(self):
+        """The monitor the phone sits under, or the two it stands between (left first)."""
+        by_name = {screen.name(): screen for screen in QGuiApplication.screens()}
+        found = [by_name[name] for name in (self.monitor.currentData() or "").split("|") if name in by_name]
+        return found or [QGuiApplication.primaryScreen()]
+
+    def phone_area(self):
+        screens = self.phone_screens()
+        area = screens[0].geometry()
+        for screen in screens[1:]:
+            area = area.united(screen.geometry())
+        return area
 
     def tick(self):
         # Qt's virtual desktop coordinates (DPI-scaled), so Windows display scaling doesn't skew the gaze.
         def rect(geometry):
             return geometry.x(), geometry.y(), geometry.width(), geometry.height()
-        desktop = self.phone_screen().geometry()
+        area = self.phone_area()
+        desktop = area
         for screen in QGuiApplication.screens():
             desktop = desktop.united(screen.geometry())
+        # The smallest sideways glance is half of one monitor, even when the phone spans two.
+        reach = min(screen.geometry().width() for screen in self.phone_screens()) * 0.5
         mouse = QCursor.pos()
-        face = self.tracker.face(mouse.x(), mouse.y(), rect(self.phone_screen().geometry()), rect(desktop),
-                                 time.monotonic(), self.mood.currentData())
+        face = self.tracker.face(mouse.x(), mouse.y(), rect(area), rect(desktop),
+                                 time.monotonic(), self.mood.currentData(), reach=reach)
         self.network.send_face(face)
         self.face_label.setText(f"gaze x {face['gazeX']:+.2f}  y {face['gazeY']:+.2f}  mood {face['mood']}")
 
