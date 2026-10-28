@@ -7,7 +7,7 @@ import threading
 import time
 
 import qrcode
-from PySide6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QObject, QPointF, QRectF, QSettings, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QPainter
 from PySide6.QtWidgets import (QApplication, QComboBox, QGridLayout, QHBoxLayout, QLabel, QPushButton,
                                QSlider, QVBoxLayout, QWidget)
@@ -117,10 +117,18 @@ class MainWindow(QWidget):
         self.mood.addItem("Auto (follow mouse)", None)
         for mood in MOODS:
             self.mood.addItem(mood.capitalize(), mood)
+        # Where the phone stands is remembered between runs.
+        self.settings = QSettings("Bluey", "Bluey laptop")
+        self.monitor = QComboBox()
+        self.monitor.currentIndexChanged.connect(self.monitor_chosen)
+        self.refresh_monitors()
+        QGuiApplication.instance().screenAdded.connect(lambda _: self.refresh_monitors())
+        QGuiApplication.instance().screenRemoved.connect(lambda _: QTimer.singleShot(0, self.refresh_monitors))
         self.position = QSlider(Qt.Horizontal)
         self.position.setRange(0, 100)
-        self.position.setValue(50)
-        self.position.valueChanged.connect(lambda value: setattr(self.tracker, "phone_position", value / 100))
+        self.position.valueChanged.connect(self.position_moved)
+        self.position.setValue(int(self.settings.value("phonePosition", 50)))
+        self.position_moved(self.position.value())
 
         usb_button = QPushButton("Set up USB now")
         usb_button.clicked.connect(lambda: self.run_usb(force=True))
@@ -131,11 +139,13 @@ class MainWindow(QWidget):
         controls.addWidget(QLabel("Mood:"), 0, 0)
         controls.addWidget(self.mood, 0, 1)
         controls.addWidget(QLabel("Phone sits under:"), 1, 0)
+        controls.addWidget(self.monitor, 1, 1)
+        controls.addWidget(QLabel("…at its:"), 2, 0)
         row = QHBoxLayout()
         row.addWidget(QLabel("left"))
         row.addWidget(self.position)
         row.addWidget(QLabel("right"))
-        controls.addLayout(row, 1, 1)
+        controls.addLayout(row, 2, 1)
         buttons = QHBoxLayout()
         buttons.addWidget(usb_button)
         buttons.addWidget(new_code)
@@ -157,12 +167,43 @@ class MainWindow(QWidget):
         self.usb_timer.start(5000)
         self.run_usb(force=True)
 
+    def refresh_monitors(self):
+        """Lists the monitors, left to right, keeping the saved choice when it's still plugged in."""
+        screens = sorted(QGuiApplication.screens(), key=lambda s: (s.geometry().x(), s.geometry().y()))
+        wanted = self.settings.value("phoneScreen") or QGuiApplication.primaryScreen().name()
+        self.monitor.blockSignals(True)
+        self.monitor.clear()
+        for number, screen in enumerate(screens, 1):
+            size = screen.geometry()
+            main = " (main)" if screen == QGuiApplication.primaryScreen() else ""
+            self.monitor.addItem(f"Monitor {number}{main}: {size.width()}×{size.height()}", screen.name())
+        names = [self.monitor.itemData(i) for i in range(self.monitor.count())]
+        primary = names.index(QGuiApplication.primaryScreen().name()) if QGuiApplication.primaryScreen() else 0
+        self.monitor.setCurrentIndex(names.index(wanted) if wanted in names else primary)
+        self.monitor.blockSignals(False)
+
+    def monitor_chosen(self, index):
+        if index >= 0:
+            self.settings.setValue("phoneScreen", self.monitor.itemData(index))
+
+    def position_moved(self, value):
+        self.tracker.phone_position = value / 100
+        self.settings.setValue("phonePosition", value)
+
+    def phone_screen(self):
+        name = self.monitor.currentData()
+        return next((s for s in QGuiApplication.screens() if s.name() == name), QGuiApplication.primaryScreen())
+
     def tick(self):
-        # Logical (DPI-scaled) coordinates for both, so Windows display scaling doesn't skew the gaze.
-        screen = QGuiApplication.primaryScreen().geometry()
+        # Qt's virtual desktop coordinates (DPI-scaled), so Windows display scaling doesn't skew the gaze.
+        def rect(geometry):
+            return geometry.x(), geometry.y(), geometry.width(), geometry.height()
+        desktop = self.phone_screen().geometry()
+        for screen in QGuiApplication.screens():
+            desktop = desktop.united(screen.geometry())
         mouse = QCursor.pos()
-        face = self.tracker.face(mouse.x() - screen.x(), mouse.y() - screen.y(), screen.width(),
-                                 screen.height(), time.monotonic(), self.mood.currentData())
+        face = self.tracker.face(mouse.x(), mouse.y(), rect(self.phone_screen().geometry()), rect(desktop),
+                                 time.monotonic(), self.mood.currentData())
         self.network.send_face(face)
         self.face_label.setText(f"gaze x {face['gazeX']:+.2f}  y {face['gazeY']:+.2f}  mood {face['mood']}")
 

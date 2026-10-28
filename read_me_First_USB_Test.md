@@ -23,9 +23,9 @@ What still had to be built from scratch (none of the Swift could be reused):
 |---|---|---|
 | `laptop/bluey_laptop/secure.py` | Pairing code + encrypted channel (HMAC proof, HKDF keys, AES-GCM, in-order sequence numbers) | `Shared/SecurePairing.swift` |
 | `laptop/bluey_laptop/link.py` | The laptop's server: challenge → proof → encrypted packets; drops bad or silent peers after 8 s | `Shared/GooglyLink.swift`, `Mac/…/PhoneServer.swift` |
-| `laptop/bluey_laptop/gaze.py` | Mouse position → where the eyes look; drowsy after 5 s still, napping after 15 s | `CursorOverlay.swift` `face(in:now:)` |
+| `laptop/bluey_laptop/gaze.py` | Mouse position → where the eyes look, **across all your monitors**; drowsy after 5 s still, napping after 15 s | `CursorOverlay.swift` `face(in:now:)` (the Mac only watches its main display) |
 | `laptop/bluey_laptop/usb.py` | Finds `adb` and runs `adb reverse tcp:47474 tcp:47474`, re-trying every 5 s until the phone connects | new |
-| `laptop/bluey_laptop/app.py` | The window: QR code, status, mood picker, phone-position slider | `AppDelegate.swift` menu, `PairingPanel.swift` |
+| `laptop/bluey_laptop/app.py` | The window: QR code, status, mood picker, which monitor the phone sits under + where along it (remembered) | `AppDelegate.swift` menu, `PairingPanel.swift` |
 | `laptop/bluey_laptop/fake_phone.py` | Pretends to be the phone, to test the laptop side alone | new |
 | `android/…/link/Secure.kt`, `Protocol.kt` | The same pairing/encryption/packets in Kotlin | `SecurePairing.swift`, `GooglyLink.swift` |
 | `android/…/link/LaptopLink.kt` | Connects to `127.0.0.1:47474`, handshakes, reconnects every 2 s, explains what's wrong | `iOS/Sources/MacLink.swift` |
@@ -41,7 +41,8 @@ What still had to be built from scratch (none of the Swift could be reused):
 
 | Check | Result |
 |---|---|
-| Laptop tests (`laptop/tests`): encryption, pinned test vectors, tamper/replay/out-of-order rejection, the full handshake over a real socket, wrong code refused, silent/garbage peers dropped, gaze maths, drowsy/napping timing | ✅ 22 passed |
+| Laptop tests (`laptop/tests`): encryption, pinned test vectors, tamper/replay/out-of-order rejection, the full handshake over a real socket, wrong code refused, silent/garbage peers dropped, gaze maths (one monitor identical to the Mac; two monitors side by side, left/right, above, negative coordinates), drowsy/napping timing | ✅ 30 passed |
+| Laptop window with **two simulated monitors**: picker lists both, eyes sweep smoothly across both, choice remembered after restart | ✅ |
 | Phone Kotlin tests (`android/app/src/test`) run on a plain JVM: **same vectors as Python, byte for byte**, opening a line the laptop sealed, pairing-code parsing (including iPhone-era codes), animator moods and settling | ✅ 7 passed |
 | **Live end-to-end:** the real Kotlin `LaptopLink` connected to the real Python server, paired, received hello and a stream of faces, and sent packets back | ✅ |
 | Phone status messages for: laptop app not running / USB tunnel up but app not answering / wrong pairing code | ✅ each shows the right message |
@@ -90,7 +91,8 @@ What still had to be built from scratch (none of the Swift could be reused):
 |---|---|---|
 | 1 | Pair | Phone status (top left): *"Connected to <your laptop name>"*. Laptop window: *"Phone: connected to Samsung …"* |
 | 2 | Move the mouse left / right / up | The eyes follow it smoothly. The numbers at the bottom of the laptop window change. |
-| 3 | Move the slider to where the phone actually sits | The eyes look "up at" the mouse from the right spot |
+| 3 | Set **Phone sits under** to the monitor the phone is below, and the slider to where along it | The eyes look "up at" the mouse from the right spot |
+| 3b | **Two monitors:** sweep the mouse from the far edge of one monitor to the far edge of the other | The eyes keep moving the whole way across, with no stuck spot. Movement on the monitor farther from the phone looks a little smaller; that's by design. |
 | 4 | Leave the mouse still for 5 s, then 15 s | Droopy sleepy eyes, then closed eyes with floating z's. Move the mouse and he wakes up. |
 | 5 | Pick each mood in the **Mood** menu | Happy (squinty smile), Thinking (dots, eyes up-right), Talking, Pointing (lids), Resting, Sleepy |
 | 6 | Unplug the USB cable for 10 s, then plug it back in | Phone says what's wrong and its eyes wander. It reconnects by itself within ~5 s of replugging. |
@@ -119,7 +121,7 @@ With the laptop app running, in a second PowerShell (`.venv` active): `python -m
 | Phone: *"…laptop refused this pairing code"* | Tap **Re-pair** and scan the current QR code |
 | Laptop: *"Couldn't listen on port 47474"* | Another copy is running. Close it, or start with `python -m bluey_laptop --port 47475` and pair again |
 | Android Studio build errors | Copy the **first** red error from the Build window and send it to me. This is the first time the Android code has been compiled, so a small fix may be needed. |
-| Eyes point the wrong way | Move the **Phone sits under** slider. If they still look off, tell me your Windows display scaling (Settings → Display → Scale). |
+| Eyes point the wrong way | Check **Phone sits under** names the right monitor (Monitor 1 is the leftmost), then move the slider. If they still look off, tell me your Windows display scaling for each monitor (Settings → Display → Scale). |
 
 ---
 
